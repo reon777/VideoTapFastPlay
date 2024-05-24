@@ -1,8 +1,8 @@
 package com.example.videotapfastplay
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,9 +19,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var player: ExoPlayer
     private lateinit var playerView: PlayerView
     private lateinit var selectVideoButton: FloatingActionButton
+    private var currentUri: Uri? = null
+    private var currentPosition: Long = 0
 
     private val pickVideo = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
+            currentUri = it
             playVideo(it)
         }
     }
@@ -68,8 +71,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        player = ExoPlayer.Builder(this).build()
+        playerView.player = player
+        currentUri?.let {
+            playVideo(it)
+            player.seekTo(currentPosition)
+        }
+    }
+
     override fun onStop() {
         super.onStop()
+        currentPosition = player.currentPosition
         player.release()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            // 横向きの処理
+        } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
+            // 縦向きの処理
+        }
     }
 }
