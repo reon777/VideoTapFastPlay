@@ -5,6 +5,10 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
+import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -56,6 +60,20 @@ class MainActivity : AppCompatActivity() {
                 player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
             }
         }
+
+        // ロングタップイベントの設定
+        playerView.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    handler.postDelayed(longPressRunnable, LONG_PRESS_TIMEOUT)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    handler.removeCallbacks(longPressRunnable)
+                    player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
+                }
+            }
+            true
+        }
     }
 
     private fun playVideo(uri: Uri) {
@@ -94,5 +112,11 @@ class MainActivity : AppCompatActivity() {
         } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
             // 縦向きの処理
         }
+    }
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val LONG_PRESS_TIMEOUT = 500L // ロングタップとみなす時間 (ミリ秒)
+    private val longPressRunnable = Runnable {
+        player.setPlaybackParameters(player.playbackParameters.withSpeed(2.0f))
     }
 }
