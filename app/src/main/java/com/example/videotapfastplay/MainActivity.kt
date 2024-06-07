@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private var currentPosition: Long = 0
     private var controlsVisible: Boolean = true
     private lateinit var gestureDetector: GestureDetector
+    private val handler = Handler(Looper.getMainLooper())
 
     private val pickVideo = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
@@ -57,8 +58,21 @@ class MainActivity : AppCompatActivity() {
 
         // ジェスチャーディテクタの設定
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapUp(e: MotionEvent): Boolean {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                 toggleControlsVisibility()
+                return true
+            }
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                val screenWidth = playerView.width
+                val touchX = e.x
+                if (touchX > screenWidth / 2) {
+                    // 右半分のダブルタップ
+                    fastForwardVideo(5000)  // Fast forward 5 seconds
+                } else {
+                    // 左半分のダブルタップ
+                    rewindVideo(5000)  // Rewind 5 seconds
+                }
                 return true
             }
 
@@ -67,18 +81,19 @@ class MainActivity : AppCompatActivity() {
                 val touchX = e.x
                 if (touchX > screenWidth / 2) {
                     // 右半分の長押し
-                    setPlaybackSpeed(2.0f)
+                    setPlaybackSpeed(3.0f)
                 } else {
                     // 左半分の長押し
-                    setPlaybackSpeed(-2.0f)
+                    setPlaybackSpeed(0.5f)  // Slow down to half speed
                 }
             }
         })
 
         // タップイベントの設定
-        playerView.setOnTouchListener { _, event ->
+        playerView.setOnTouchListener { v, event ->
             gestureDetector.onTouchEvent(event)
             if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                handler.removeCallbacksAndMessages(null)
                 player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
             }
             true
@@ -94,6 +109,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun setPlaybackSpeed(speed: Float) {
         player.setPlaybackParameters(player.playbackParameters.withSpeed(speed))
+    }
+
+    private fun rewindVideo(milliseconds: Long) {
+        val newPosition = (player.currentPosition - milliseconds).coerceAtLeast(0)
+        player.seekTo(newPosition)
+    }
+
+    private fun fastForwardVideo(milliseconds: Long) {
+        val newPosition = (player.currentPosition + milliseconds).coerceAtMost(player.duration)
+        player.seekTo(newPosition)
     }
 
     private fun checkPermissions() {
@@ -135,7 +160,4 @@ class MainActivity : AppCompatActivity() {
             // 縦向きの処理
         }
     }
-
-    private val handler = Handler(Looper.getMainLooper())
-    private val LONG_PRESS_TIMEOUT = 500L // ロングタップとみなす時間 (ミリ秒)
 }
