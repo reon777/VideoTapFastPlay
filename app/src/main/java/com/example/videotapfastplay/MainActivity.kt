@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +26,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectVideoButton: FloatingActionButton
     private var currentUri: Uri? = null
     private var currentPosition: Long = 0
+    private var controlsVisible: Boolean = true
+    private lateinit var gestureDetector: GestureDetector
 
     private val pickVideo = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
@@ -52,25 +55,31 @@ class MainActivity : AppCompatActivity() {
             pickVideo.launch("video/*")
         }
 
-        // タップイベントの設定
-        playerView.setOnClickListener {
-            if (player.playbackParameters.speed == 1.0f) {
-                player.setPlaybackParameters(player.playbackParameters.withSpeed(2.0f))
-            } else {
-                player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
+        // ジェスチャーディテクタの設定
+        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                toggleControlsVisibility()
+                return true
             }
-        }
 
-        // ロングタップイベントの設定
-        playerView.setOnTouchListener { v, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    handler.postDelayed(longPressRunnable, LONG_PRESS_TIMEOUT)
+            override fun onLongPress(e: MotionEvent) {
+                val screenWidth = playerView.width
+                val touchX = e.x
+                if (touchX > screenWidth / 2) {
+                    // 右半分の長押し
+                    setPlaybackSpeed(2.0f)
+                } else {
+                    // 左半分の長押し
+                    setPlaybackSpeed(-2.0f)
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    handler.removeCallbacks(longPressRunnable)
-                    player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
-                }
+            }
+        })
+
+        // タップイベントの設定
+        playerView.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                player.setPlaybackParameters(player.playbackParameters.withSpeed(1.0f))
             }
             true
         }
@@ -83,10 +92,23 @@ class MainActivity : AppCompatActivity() {
         player.playWhenReady = true
     }
 
+    private fun setPlaybackSpeed(speed: Float) {
+        player.setPlaybackParameters(player.playbackParameters.withSpeed(speed))
+    }
+
     private fun checkPermissions() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 1)
         }
+    }
+
+    private fun toggleControlsVisibility() {
+        if (controlsVisible) {
+            playerView.hideController()
+        } else {
+            playerView.showController()
+        }
+        controlsVisible = !controlsVisible
     }
 
     override fun onStart() {
@@ -116,7 +138,4 @@ class MainActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val LONG_PRESS_TIMEOUT = 500L // ロングタップとみなす時間 (ミリ秒)
-    private val longPressRunnable = Runnable {
-        player.setPlaybackParameters(player.playbackParameters.withSpeed(2.0f))
-    }
 }
